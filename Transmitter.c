@@ -15,22 +15,24 @@ int Decoding[10] = {189, 9, 117, 109, 201, 236, 252, 13, 253, 237};//Масси�
 int PD5p, PD6p, PD0p=1, PD1p=1, speeder=16080;// Переменные для работы с энкодером
 int Effect, Diod[10]={16,32,8,1,4,128,64,1,4,128},Schet;// Переменные для создания эффекта на неиспользуемом 4 цифровом индикаторе.
 int Step, Dir, stop=1, Kn1, Kn2, stopp, ravno;//Переменные для работы с двигателем, кнопками и модулем приемника 
+const int MAX_SPEED = 32696;
+const int SPEED_STEP = 268;
 
 ISR (TIMER0_OVF_vect )
 {
 	if (stop==1)//замедление
 	{  
-	  if (speeder<32696)
+	  if (speeder < MAX_SPEED)
     {
-      speeder += 268;
+      speeder += SPEED_STEP;
     } 
     else 
     {
-      Kn1=0; Kn2=0; speeder=32697; stopp=1; stop=0;
+      Kn1=0; Kn2=0; speeder = MAX_SPEED+1; stopp=1; stop=0;
     }
 	}
 	
-  if ((stopp!=1)&&(ravno>=speeder)&&(speeder < 32697))
+  if ((stopp!=1)&&(ravno>=speeder)&&(speeder < MAX_SPEED+1))
   {
     if (PINB==(2|PINB))//Инверсия бита
     {
@@ -111,7 +113,7 @@ ISR (TWI_vect) //Обработчик прерывания модуля TWI
 	
 void display_speed(int actual_speed) {
    int b, c, e;//Временные переменные для удобства разложения по разрядам
-   if (actual_speed >32696)
+   if (actual_speed >MAX_SPEED)
     {
       Sot = 0;
       Des = 0;
@@ -120,7 +122,7 @@ void display_speed(int actual_speed) {
     }// Перекинуть ноль с перед еденицы за 120. 
     else
     {
-      speed = (actual_speed-536)/268;
+      speed = (actual_speed-2*SPEED_STEP)/SPEED_STEP;
       
       // Разложение  числа на составные (сотни, десятки, еденицы)
       b   = speed/100;	
@@ -177,25 +179,25 @@ int main(void)
     // increment
     if (((PD6p==1)&&(PD5p==0)&&((32|PIND)!=PIND)&&((64|PIND)!=PIND))|((PD6p==0)&&(PD5p==0)&&((32|PIND)==PIND)&&((64|PIND)!=PIND))|((PD6p==0)&&(PD5p==1)&&((32|PIND)==PIND)&&((64|PIND)==PIND))|((PD6p==1)&&(PD5p==1)&&((32|PIND)!=PIND)&&((64|PIND)==PIND)))
     {
-      if (speeder<32696)
+      if (speeder < MAX_SPEED)
       {
-        speeder += 268;
+        speeder += SPEED_STEP;
       }
       else
       {
-        speeder = 32697;
+        speeder = MAX_SPEED + 1;
       }// для изменения положения нуля
     } 
     // decrement
     if (((PD6p==0)&&(PD5p==0)&&((32|PIND)!=PIND)&&((64|PIND)==PIND))|((PD6p==1)&&(PD5p==0)&&((32|PIND)==PIND)&&((64|PIND)==PIND))|((PD6p==1)&&(PD5p==1)&&((32|PIND)==PIND)&&((64|PIND)!=PIND))|((PD6p==0)&&(PD5p==1)&&((32|PIND)!=PIND)&&((64|PIND)!=PIND)))
     {
-      if (speeder>32696)
+      if (speeder > MAX_SPEED)
       {
-        speeder=32696;
+        speeder = MAX_SPEED;
       }
-      if (speeder>804)
+      if (speeder > 3*SPEED_STEP)
       {
-        speeder -= 268;
+        speeder -= SPEED_STEP;
       }
     }
     if((PIND|32)==PIND) {PD5p=1;} else {PD5p=0;}//Запомнить  состояние энкодера
@@ -204,7 +206,7 @@ int main(void)
     // Формирование отображаемого числа:
     display_speed(speeder);
 
-  //Обработчик кнопок:
+    //Обработчик кнопок:
     if ((((PIND|2)==PIND)|((PIND|1)==PIND))&&(stop==0)&&((PD0p==0)|(PD1p==0))&&((Kn1==1)|(Kn2==1))) {stop=1; }	// Обработка сигнала стоп - по нажатию любой кнопки, если двигатель крутится
     if (((PIND|1)==PIND)&&(stop==1)&&(PD0p==0))	{PORTB|=4; stop= 0; stopp=0; Kn1=1; _delay_ms(16); }// Крутим, предположительно, в лево 
     if (((PIND|2)==PIND)&&(stop==1)&&(PD1p==0)) {PORTB&=~4; stop= 0; stopp=0; Kn2=1; _delay_ms(16); }// Крутим, предположительно, в право 
