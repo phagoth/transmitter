@@ -10,7 +10,7 @@
 #include <avr/interrupt.h>
 #define F_CPU 8000000UL  // 8 MHz
 #include <avr/delay.h>
-int a=0, speed, i=0,SendByteTWI =0b11000101, StartTWI=0b11100101, StopTWI=0b11010101, Ed, Des, Sot, b, c, e; // Переменные общего назначения и для работы с TWI
+int a=0, speed, i=0,SendByteTWI =0b11000101, StartTWI=0b11100101, StopTWI=0b11010101, Ed, Des, Sot; // Переменные общего назначения и для работы с TWI
 int Decoding[10] = {189, 9, 117, 109, 201, 236, 252, 13, 253, 237};//Массив с дешифром для семисегментного индикатора
 int PD5p, PD6p, PD0p=1, PD1p=1, speeder=16080;// Переменные для работы с энкодером
 int Effect, Diod[10]={16,32,8,1,4,128,64,1,4,128},Schet;// Переменные для создания эффекта на неиспользуемом 4 цифровом индикаторе.
@@ -109,7 +109,29 @@ ISR (TWI_vect) //Обработчик прерывания модуля TWI
   }
 }
 	
-
+void display_speed(int actual_speed) {
+   int b, c, e;//Временные переменные для удобства разложения по разрядам
+   if (actual_speed >32696)
+    {
+      Sot = 0;
+      Des = 0;
+      Ed  = Decoding[0];
+      stop= 1;
+    }// Перекинуть ноль с перед еденицы за 120. 
+    else
+    {
+      speed = (actual_speed-536)/268;
+      
+      // Разложение  числа на составные (сотни, десятки, еденицы)
+      b   = speed/100;	
+      c   = (speed-(b*100))/10;
+      e   = (speed-(b*100))-(c*10);
+      
+      Sot = speed < 100 ? 0 : Decoding[b]; //Гасим нули в сотнях
+      Des = speed < 10 ? 0 : Decoding[c]; //Гасим нули в десятках
+      Ed  = Decoding[e];
+    }
+}
 
 int main(void)
 {
@@ -180,38 +202,7 @@ int main(void)
     if((PIND|64)==PIND) {PD6p=1;} else {PD6p=0;}
     
     // Формирование отображаемого числа:
-    if (speeder >=32697)
-    {
-      Sot=0; Des=0; Ed=Decoding[0]; stop=1;
-    }// Перекинуть ноль с перед еденицы за 120. 
-    else
-    {
-      speed=(speeder-536)/268;
-      b=speed/100;	// Разложение  числа на составные (сотни, десятки, еденицы,)
-      c=(speed-(b*100))/10;
-      e=(speed-(b*100))-(c*10);
-      Ed=Decoding[e];
-      
-      if (b==0)//Группа проверок для гашения нулей перед числом
-      {
-        Sot=0;
-      } 
-      else
-      {
-        Sot=Decoding[b];
-      }
-      
-      if ((b==0)&&(c==0))
-      {
-        Des=0;
-      } 
-      else
-      {
-        Des=Decoding[c];
-      }
-      
-      b=c=e=0;	
-    }
+    display_speed(speeder);
 
   //Обработчик кнопок:
     if ((((PIND|2)==PIND)|((PIND|1)==PIND))&&(stop==0)&&((PD0p==0)|(PD1p==0))&&((Kn1==1)|(Kn2==1))) {stop=1; }	// Обработка сигнала стоп - по нажатию любой кнопки, если двигатель крутится
